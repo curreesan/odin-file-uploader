@@ -113,14 +113,6 @@ app.post(
   }),
 );
 
-// Dashboard Route
-app.get("/dashboard", (req, res) => {
-  if (!req.user) {
-    return res.redirect("/login");
-  }
-  res.render("dashboard");
-});
-
 // Logout Route
 app.get("/logout", (req, res) => {
   req.logout((err) => {
@@ -129,6 +121,86 @@ app.get("/logout", (req, res) => {
     }
     res.redirect("/");
   });
+});
+
+// GET Dashboard - Show folders
+app.get("/dashboard", async (req, res) => {
+  if (!req.user) {
+    return res.redirect("/login");
+  }
+
+  const folders = await prisma.folder.findMany({
+    where: { userId: req.user.id },
+    orderBy: { createdAt: "desc" },
+  });
+
+  res.render("dashboard", { folders });
+});
+
+// Create Folder
+app.post("/folders", async (req, res) => {
+  if (!req.user) {
+    return res.redirect("/login");
+  }
+
+  const { name } = req.body;
+
+  if (!name || name.trim() === "") {
+    return res.send(
+      'Folder name cannot be empty. <a href="/dashboard">Go back</a>',
+    );
+  }
+
+  try {
+    const newFolder = await prisma.folder.create({
+      data: {
+        name: name.trim(),
+        userId: req.user.id,
+      },
+    });
+
+    res.redirect("/dashboard");
+  } catch (error) {
+    // Handle duplicate folder name error
+    if (error.code === "P2002") {
+      return res.send(
+        `Folder "${name}" already exists. <a href="/dashboard">Go back</a>`,
+      );
+    }
+    res.send('Error creating folder. <a href="/dashboard">Go back</a>');
+  }
+});
+
+// Delete Folder
+app.post("/folders/:id/delete", async (req, res) => {
+  if (!req.user) {
+    return res.redirect("/login");
+  }
+
+  const folderId = parseInt(req.params.id);
+
+  try {
+    // Security check: Make sure the folder belongs to the current user
+    const folder = await prisma.folder.findUnique({
+      where: { id: folderId },
+    });
+
+    if (!folder || folder.userId !== req.user.id) {
+      return res.send(
+        'Folder not found or you do not have permission. <a href="/dashboard">Go back</a>',
+      );
+    }
+
+    // Delete the folder (files inside will be auto-deleted due to cascade)
+    await prisma.folder.delete({
+      where: { id: folderId },
+    });
+
+    res.redirect("/dashboard");
+  } catch (error) {
+    console.error(error);
+    res.send('Error deleting folder. <a href="/dashboard">Go back</a>');
+  }
 });
 
 app.listen(PORT, () => {

@@ -3,23 +3,47 @@
 <head>
   <meta charset="UTF-8">
   <title>Dashboard - File Uploader</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 40px; }
-    .welcome { font-size: 24px; }
-  </style>
 </head>
 <body>
   <h1>Dashboard</h1>
   
   <% if (currentUser) { %>
-    <p class="welcome">Welcome back, <%= currentUser.name || currentUser.email %>!</p>
-    <p>You are now logged in.</p>
-    
+    <p>Welcome, <%= currentUser.name || currentUser.email %>!</p>
+
+    <!-- Create New Folder -->
+    <h2>Create New Folder</h2>
+    <form action="/folders" method="POST">
+      <input type="text" name="name" placeholder="Folder name" required>
+      <button type="submit">Create Folder</button>
+    </form>
+
+    <hr>
+
+    <!-- List of Folders -->
+    <h2>Your Folders</h2>
+    <% if (folders && folders.length > 0) { %>
+      <ul>
+        <% folders.forEach(folder => { %>
+          <li>
+            <%= folder.name %> 
+            <small>(<%= folder.createdAt.toLocaleDateString() %>)</small>
+
+            <form action="/folders/<%= folder.id %>/delete" method="POST" style="display: inline;">
+                <button type="submit" onclick="return confirm('Delete folder <%= folder.name %> and all files inside it?')">
+                    Delete
+                </button>
+            </form>
+          </li>
+        <% }); %>
+      </ul>
+    <% } else { %>
+      <p>You don't have any folders yet.</p>
+    <% } %>
+
     <br>
     <a href="/logout">Logout</a>
-    <br><br>
   <% } else { %>
-    <p>You are not logged in. <a href="/login">Login</a></p>
+    <p>Please <a href="/login">login</a>.</p>
   <% } %>
 </body>
 </html>
