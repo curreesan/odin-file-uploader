@@ -6,7 +6,7 @@ const passport = require("passport");
 
 const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");
-const passportConfig = require("./config/passport");
+const { PrismaSessionStore } = require("@quixo3/prisma-session-store");
 
 dotenv.config();
 
@@ -19,7 +19,7 @@ const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
 // Load Passport Configuration
-require("./config/passport");
+const passportConfig = require("./config/passport");
 passportConfig(prisma);
 
 // Middleware
@@ -28,13 +28,19 @@ app.set("views", path.join(__dirname, "views"));
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.urlencoded({ extended: true }));
 
-// Session Setup
+// Session Setup with Prisma Session Store
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "simple-secret-key-for-development",
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 1000 * 60 * 60 * 24 }, // 1 day
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+    },
+    store: new PrismaSessionStore(prisma, {
+      checkPeriod: 2 * 60 * 1000,
+      dbRecordIdIsSessionId: true,
+    }),
   }),
 );
 
@@ -78,7 +84,7 @@ app.post("/signup", async (req, res) => {
       data: {
         email,
         password: hashedPassword,
-        name: name || null, // Save name if provided, otherwise null
+        name: name || null,
       },
     });
 
@@ -93,21 +99,21 @@ app.post("/signup", async (req, res) => {
   }
 });
 
-// Login Route (GET - show form)
+// Login Route (GET)
 app.get("/login", (req, res) => {
   res.render("login");
 });
 
-// Login POST - Authenticate with Passport
+// Login POST
 app.post(
   "/login",
   passport.authenticate("local", {
-    successRedirect: "/dashboard", // Go here after successful login
-    failureRedirect: "/login", // Go back to login if failed
-    failureMessage: true,
+    successRedirect: "/dashboard",
+    failureRedirect: "/login",
   }),
 );
 
+// Dashboard Route
 app.get("/dashboard", (req, res) => {
   if (!req.user) {
     return res.redirect("/login");
@@ -115,6 +121,7 @@ app.get("/dashboard", (req, res) => {
   res.render("dashboard");
 });
 
+// Logout Route
 app.get("/logout", (req, res) => {
   req.logout((err) => {
     if (err) {
