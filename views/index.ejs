@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>File Uploader</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    a { margin: 0 10px; }
+  </style>
+</head>
+<body>
+  <h1>File Uploader</h1>
+  
+  <% if (currentUser) { %>
+    <p>Welcome, <%= currentUser.email %>!</p>
+    <a href="/logout">Logout</a>
+  <% } else { %>
+    <p>You are not logged in.</p>
+    <a href="/signup">Sign Up</a> | 
+    <a href="/login">Login</a>
+  <% } %>
+
+  <br><br>
+  <a href="/test-db">Test Database</a>
+</body>
+</html>

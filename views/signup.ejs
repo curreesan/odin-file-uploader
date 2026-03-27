@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sign Up - File Uploader</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 40px;
+      }
+      form {
+        max-width: 400px;
+      }
+      label {
+        display: block;
+        margin-top: 15px;
+      }
+      input {
+        display: block;
+        margin: 8px 0;
+        padding: 10px;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      button {
+        margin-top: 20px;
+        padding: 12px 25px;
+        background: #0066cc;
+        color: white;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Create Account</h1>
+
+    <form action="/signup" method="POST">
+      <label>Name (optional):</label>
+      <input type="text" name="name" placeholder="Your full name" />
+
+      <label>Email:</label>
+      <input type="email" name="email" required placeholder="you@example.com" />
+
+      <label>Password:</label>
+      <input
+        type="password"
+        name="password"
+        required
+        placeholder="Choose a strong password"
+      />
+
+      <button type="submit">Sign Up</button>
+    </form>
+
+    <p>Already have an account? <a href="/login">Login here</a></p>
+  </body>
+</html>

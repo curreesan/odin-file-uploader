@@ -1,0 +1,129 @@
+const express = require("express");
+const dotenv = require("dotenv");
+const path = require("path");
+const session = require("express-session");
+const passport = require("passport");
+
+const { PrismaClient } = require("@prisma/client");
+const { PrismaPg } = require("@prisma/adapter-pg");
+const passportConfig = require("./config/passport");
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Prisma Setup
+const connectionString = process.env.DATABASE_URL;
+const adapter = new PrismaPg({ connectionString });
+const prisma = new PrismaClient({ adapter });
+
+// Load Passport Configuration
+require("./config/passport");
+passportConfig(prisma);
+
+// Middleware
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
+app.use(express.static(path.join(__dirname, "public")));
+app.use(express.urlencoded({ extended: true }));
+
+// Session Setup
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "simple-secret-key-for-development",
+    resave: false,
+    saveUninitialized: false,
+    cookie: { maxAge: 1000 * 60 * 60 * 24 }, // 1 day
+  }),
+);
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Make currentUser available in all EJS views
+app.use((req, res, next) => {
+  res.locals.currentUser = req.user;
+  next();
+});
+
+// Home Route
+app.get("/", (req, res) => {
+  res.render("index");
+});
+
+// Signup Route
+app.get("/signup", (req, res) => {
+  res.render("signup");
+});
+
+app.post("/signup", async (req, res) => {
+  const { email, password, name } = req.body;
+
+  try {
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      return res.send(
+        'A user with this email already exists. <br><a href="/signup">Try again</a>',
+      );
+    }
+
+    const bcrypt = require("bcryptjs");
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        name: name || null, // Save name if provided, otherwise null
+      },
+    });
+
+    res.send(
+      `✅ Account created successfully for ${email}! <br><br><a href="/login">Go to Login →</a>`,
+    );
+  } catch (error) {
+    console.error(error);
+    res.send(
+      'Something went wrong during signup. <a href="/signup">Try again</a>',
+    );
+  }
+});
+
+// Login Route (GET - show form)
+app.get("/login", (req, res) => {
+  res.render("login");
+});
+
+// Login POST - Authenticate with Passport
+app.post(
+  "/login",
+  passport.authenticate("local", {
+    successRedirect: "/dashboard", // Go here after successful login
+    failureRedirect: "/login", // Go back to login if failed
+    failureMessage: true,
+  }),
+);
+
+app.get("/dashboard", (req, res) => {
+  if (!req.user) {
+    return res.redirect("/login");
+  }
+  res.render("dashboard");
+});
+
+app.get("/logout", (req, res) => {
+  req.logout((err) => {
+    if (err) {
+      return res.send("Error logging out");
+    }
+    res.redirect("/");
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`✅ Server running on http://localhost:${PORT}`);
+});

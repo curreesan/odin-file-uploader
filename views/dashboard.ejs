@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard - File Uploader</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    .welcome { font-size: 24px; }
+  </style>
+</head>
+<body>
+  <h1>Dashboard</h1>
+  
+  <% if (currentUser) { %>
+    <p class="welcome">Welcome back, <%= currentUser.name || currentUser.email %>!</p>
+    <p>You are now logged in.</p>
+    
+    <br>
+    <a href="/logout">Logout</a>
+    <br><br>
+  <% } else { %>
+    <p>You are not logged in. <a href="/login">Login</a></p>
+  <% } %>
+</body>
+</html>
