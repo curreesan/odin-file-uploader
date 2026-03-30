@@ -1,11 +1,11 @@
 const prisma = require("../prisma");
+const supabase = require("../config/supabase");
 
 const getDashboard = async (req, res) => {
   if (!req.user) {
     return res.redirect("/login");
   }
 
-  // Get user's folders
   const folders = await prisma.folder.findMany({
     where: { userId: req.user.id },
     orderBy: { name: "asc" },
@@ -16,7 +16,6 @@ const getDashboard = async (req, res) => {
     },
   });
 
-  // Get root files (files with no folder)
   const rootFiles = await prisma.file.findMany({
     where: {
       userId: req.user.id,
@@ -89,34 +88,55 @@ const deleteFolder = async (req, res) => {
   }
 };
 
-// Add this function
 const deleteFile = async (req, res) => {
-  if (!req.user) return res.redirect("/login");
+  if (!req.user) {
+    return res.redirect("/login");
+  }
 
   const fileId = parseInt(req.params.id);
 
   try {
-    // Security check: file must belong to user
     const file = await prisma.file.findUnique({
       where: { id: fileId },
     });
 
     if (!file || file.userId !== req.user.id) {
       return res.send(
-        'File not found or you do not have permission. <a href="/dashboard">Go back</a>',
+        'File not found or you do not have permission to delete it. <a href="/dashboard">Go back</a>',
       );
     }
 
-    // delete from database
+    // Delete from Supabase Storage
+    if (file.publicId) {
+      const { error } = await supabase.storage
+        .from("file-uploads")
+        .remove([file.publicId]);
+
+      if (error) {
+        console.error("Supabase delete error:", error);
+      } else {
+        console.log(`✅ Deleted from Supabase: ${file.publicId}`);
+      }
+    }
+
+    // Delete from database
     await prisma.file.delete({
       where: { id: fileId },
     });
 
+    console.log(`✅ File deleted: ${file.originalName}`);
     res.redirect("/dashboard");
   } catch (error) {
-    console.error(error);
-    res.send('Error deleting file. <a href="/dashboard">Go back</a>');
+    console.error("Delete file error:", error);
+    res.send(
+      'Error occurred while deleting the file. <a href="/dashboard">Go back</a>',
+    );
   }
 };
 
-module.exports = { getDashboard, createFolder, deleteFolder, deleteFile };
+module.exports = {
+  getDashboard,
+  createFolder,
+  deleteFolder,
+  deleteFile,
+};
