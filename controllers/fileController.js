@@ -21,6 +21,7 @@ const showUploadForm = async (req, res) => {
   });
 };
 
+// POST - Upload File with proper folder support
 const uploadFile = async (req, res) => {
   if (!req.user) return res.redirect("/login");
 
@@ -28,35 +29,56 @@ const uploadFile = async (req, res) => {
     return res.send('No file selected. <a href="/dashboard">Go back</a>');
   }
 
+  const { folderId } = req.body;
   const file = req.file;
-  const folderId = req.body.folderId ? parseInt(req.body.folderId) : null;
 
   try {
-    const fileExt = path.extname(file.originalname);
-    const baseName = path.basename(file.originalname, fileExt);
-    const uniqueFileName = `${baseName}-${Date.now()}${fileExt}`;
-    const finalPath = `${req.user.id}/${uniqueFileName}`;
+    let finalFolderId = null;
+    let folderPath = `${req.user.id}`; // Default: under user ID
 
-    console.log("Uploading to:", finalPath);
-
-    const { error } = await supabase.storage
-      .from("file-uploads")
-      .upload(finalPath, file.buffer, {
-        contentType: file.mimetype,
-        upsert: true,
+    // If folder is selected, use folder name in path
+    if (folderId && folderId !== "") {
+      const folder = await prisma.folder.findFirst({
+        where: {
+          id: parseInt(folderId),
+          userId: req.user.id,
+        },
       });
 
-    if (error) {
-      console.error("Supabase upload error:", error);
+      if (folder) {
+        finalFolderId = parseInt(folderId);
+        folderPath = `${req.user.id}/${folder.name}`; // e.g., 4/My Projects
+      }
+    }
+
+    // Create unique filename
+    const fileExt = path.extname(file.originalname);
+    const baseName = path.basename(file.originalname, fileExt);
+    const uniqueFileName = `${baseName}-${Date.now()}-${Math.round(Math.random() * 1e9)}${fileExt}`;
+
+    const finalPath = `${folderPath}/${uniqueFileName}`;
+
+    // Upload to Supabase
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(finalPath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error("Supabase upload error:", uploadError);
       return res.send(
-        `Upload failed: ${error.message} <br><a href="/dashboard">Go back</a>`,
+        'Failed to upload file. <a href="/dashboard">Go back</a>',
       );
     }
 
+    // Get public URL
     const { data: urlData } = supabase.storage
-      .from("file-uploads")
+      .from(BUCKET_NAME)
       .getPublicUrl(finalPath);
 
+    // Save to database
     await prisma.file.create({
       data: {
         name: uniqueFileName,
@@ -64,17 +86,19 @@ const uploadFile = async (req, res) => {
         size: file.size,
         mimeType: file.mimetype,
         url: urlData.publicUrl,
-        publicId: finalPath,
-        folderId: folderId,
+        publicId: finalPath, // Full path - important for deletion
+        folderId: finalFolderId,
         userId: req.user.id,
       },
     });
 
-    console.log("✅ Upload successful!");
+    console.log(`✅ Uploaded: ${finalPath}`);
     res.redirect("/dashboard");
   } catch (error) {
-    console.error("Error:", error);
-    res.send(`Error: ${error.message} <br><a href="/dashboard">Go back</a>`);
+    console.error(error);
+    res.send(
+      'Something went wrong during upload. <a href="/dashboard">Go back</a>',
+    );
   }
 };
 
