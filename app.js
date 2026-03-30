@@ -50,15 +50,15 @@ app.use((req, res, next) => {
   next();
 });
 
-// Import Routes (we'll update these next)
+// Import Routes
 const authRoutes = require("./routes/authRoutes");
 const folderRoutes = require("./routes/folderRoutes");
-// const fileRoutes = require("./routes/fileRoutes");   // uncomment later
+const fileRoutes = require("./routes/fileRoutes");
 
 // Mount Routes
 app.use("/", authRoutes);
 app.use("/", folderRoutes);
-// app.use("/", fileRoutes);
+app.use("/", fileRoutes);
 
 // Home Route
 app.get("/", (req, res) => {
